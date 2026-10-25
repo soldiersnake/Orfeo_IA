@@ -14,6 +14,14 @@ const EnvSchema = z.object({
     .transform((v) => (v === undefined ? undefined : v === 'true')),
   /** Si Ollama tarda más que esto, cortamos con un error claro en vez de quedarnos colgados. */
   OLLAMA_TIMEOUT_MS: z.coerce.number().default(120_000),
+  /** Modelo que convierte texto en vectores (embeddings) para la memoria. */
+  OLLAMA_EMBED_MODEL: z.string().default('nomic-embed-text'),
+
+  MONGO_URI: z.string().default('mongodb://localhost:27018/orfeo'),
+  /** Cuántos recuerdos como máximo se añaden al prompt. */
+  MEMORY_TOP_K: z.coerce.number().default(5),
+  /** Similitud mínima (0-1) para considerar un recuerdo relevante. */
+  MEMORY_MIN_SCORE: z.coerce.number().min(0).max(1).default(0.5),
 });
 
 export type Env = z.infer<typeof EnvSchema>;

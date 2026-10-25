@@ -14,6 +14,8 @@ export interface LlmChatOptions {
 
 export interface LlmProvider {
   chat(messages: ChatMessage[], options?: LlmChatOptions): Promise<string>;
+  /** Convierte textos en vectores que representan su significado. */
+  embed(texts: string[]): Promise<number[][]>;
 }
 
 /** Token de inyección: NestJS no puede inyectar interfaces, así que usamos un símbolo. */
