@@ -1,7 +1,7 @@
-import { Inject, Injectable, Logger } from '@nestjs/common';
-import { OrfeoReply, OrfeoReplySchema, orfeoReplyJsonSchema } from '@orfeo/protocol';
+import { Injectable, Logger } from '@nestjs/common';
+import type { OrfeoReply } from '@orfeo/protocol';
+import { AgentService } from '../agent/agent.service';
 import { ConversationService } from '../conversation/conversation.service';
-import { LLM_PROVIDER, type LlmProvider } from '../llm/llm.types';
 import { MemoryService, type RecalledMemory } from '../memory/memory.service';
 import { orfeoPersona } from '../persona/orfeo.persona';
 import { buildSystemPrompt } from '../persona/system-prompt';
@@ -15,7 +15,7 @@ export class ChatService {
   private readonly basePrompt = buildSystemPrompt(orfeoPersona);
 
   constructor(
-    @Inject(LLM_PROVIDER) private readonly llm: LlmProvider,
+    private readonly agent: AgentService,
     private readonly conversation: ConversationService,
     private readonly memory: MemoryService,
   ) {}
@@ -29,22 +29,20 @@ export class ChatService {
 
     // 2. Contexto: persona + recuerdos + charla reciente + mensaje nuevo
     const history = await this.conversation.recent(MAX_HISTORY);
-    const raw = await this.llm.chat(
-      [
-        { role: 'system', content: this.withMemories(recalled) },
-        ...history,
-        { role: 'user', content: userText },
-      ],
-      { jsonSchema: orfeoReplyJsonSchema },
-    );
-    const reply = this.parse(raw);
+    const { reply, toolsUsed } = await this.agent.run([
+      { role: 'system', content: this.withMemories(recalled) },
+      ...history,
+      { role: 'user', content: userText },
+    ]);
+    if (toolsUsed.length) this.logger.debug(`Herramientas usadas: ${toolsUsed.join(', ')}`);
 
     // 3. Guardar el intercambio
     await this.conversation.add('user', userText);
     await this.conversation.add('assistant', reply.text, reply.emotion);
 
     // 4. Aprender en segundo plano (no hacemos esperar a Mariano)
-    void this.memory.learnFrom(userText).catch((err) =>
+    // (si ya guardó un recuerdo o una nota en este turno, no hace falta)
+    if (!toolsUsed.some((t) => t === 'remember' || t === 'save_note')) void this.memory.learnFrom(userText).catch((err) =>
       this.logger.warn(`No pude aprender de este mensaje: ${(err as Error).message}`),
     );
 
@@ -63,15 +61,5 @@ export class ChatService {
 # Lo que recuerdas de ${orfeoPersona.human} (relacionado con este mensaje)
 ${recalled.map((m) => `- ${m.text}`).join('\n')}
 Úsalo con naturalidad, como lo haría un amigo que se acuerda; no lo recites ni lo menciones si no viene al caso.`;
-  }
-
-  /** Valida lo que devolvió el modelo; si viene roto, no rompemos la charla. */
-  private parse(raw: string): OrfeoReply {
-    try {
-      return OrfeoReplySchema.parse(JSON.parse(raw));
-    } catch {
-      this.logger.warn(`Respuesta fuera de formato: ${raw.slice(0, 200)}`);
-      return { text: raw.trim() || '...', emotion: 'neutral' };
-    }
   }
 }

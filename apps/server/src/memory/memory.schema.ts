@@ -17,6 +17,10 @@ export class Memory {
   @Prop({ type: [Number], required: true, select: false })
   embedding!: number[];
 
+  /** Modelo que generó el embedding: si cambias de modelo, se recalcula al arrancar. */
+  @Prop({ required: true, default: 'nomic-embed-text' })
+  embedModel!: string;
+
   @Prop({ default: 0 })
   uses!: number;
 

@@ -5,10 +5,13 @@ Asistente/amigo de Mariano. **Cerebro** en el PC (NestJS + Ollama, todo local); 
 ## Estructura
 - `packages/protocol` — contrato compartido: emociones, `OrfeoReply {text, emotion}`, mensajes WS. Cambiarlo afecta a todos los clientes.
 - `apps/server/src/persona` — personalidad como DATOS (`orfeo.persona.ts`) + generador del system prompt.
-- `apps/server/src/llm` — interfaz `LlmProvider` (`chat`, `embed`) + `OllamaProvider`. El resto de la app solo usa la interfaz (token `LLM_PROVIDER`).
-- `apps/server/src/chat` — orquesta: recordar → responder → guardar → aprender en segundo plano.
+- `apps/server/src/llm` — interfaz `LlmProvider` (`chat`, `chatWithTools`, `embed`) + `OllamaProvider`. El resto de la app solo usa la interfaz (token `LLM_PROVIDER`).
+- `apps/server/src/chat` — orquesta: recordar → agente → guardar → aprender en segundo plano.
+- `apps/server/src/agent` — bucle de tool calling (máx. 5 pasos, máx. 2 usos por tool y turno, el último paso solo permite `respond`). El agente termina SIEMPRE llamando a la tool especial `respond({text, emotion})` (Ollama no combina bien `format` JSON + tools).
+- `apps/server/src/tools` — interfaz `OrfeoTool` (zod `schema` + JSON Schema `parameters` + `execute`). Añadir una tool = crear la clase en `builtin/` y sumarla a `TOOL_CLASSES` en `tools.module.ts`.
+- `apps/server/src/notes` — notas/ideas en Mongo (etiquetas + índice de texto).
 - `apps/server/src/conversation` — memoria corta (mensajes por `sessionId` en Mongo).
-- `apps/server/src/memory` — memoria larga: extracción con LLM, embeddings `nomic-embed-text`, similitud coseno en Node.
+- `apps/server/src/memory` — memoria larga: extracción con LLM, embeddings `embeddinggemma` (multilingüe; prefijos por modelo; se recalculan al arrancar si cambia el modelo), similitud coseno en Node (umbral `MEMORY_MIN_SCORE`).
 - `apps/server/src/cli` — chat por terminal.
 
 ## Comandos
