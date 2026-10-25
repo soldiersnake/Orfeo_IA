@@ -1,0 +1,12 @@
+# MongoDB local para la memoria de Orfeo (se usa a partir de la fase 2)
+services:
+  mongo:
+    image: mongo:8
+    container_name: orfeo-mongo
+    restart: unless-stopped
+    ports:
+      - "27018:27017"  # 27018 en tu PC (el 27017 ya lo usa tu otro MongoDB)
+    volumes:
+      - orfeo-mongo-data:/data/db
+volumes:
+  orfeo-mongo-data:
