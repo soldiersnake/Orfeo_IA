@@ -2,7 +2,7 @@ import type { Language } from '@orfeo/protocol';
 
 /** Oídos: audio -> texto. */
 export interface SpeechToText {
-  transcribe(audio: Buffer, mimeType: string): Promise<{ text: string; language: Language }>;
+  transcribe(audio: Buffer, mimeType: string): Promise<{ text: string; language: Language; rawLanguage?: string }>;
 }
 
 /** Boca: texto -> audio. */

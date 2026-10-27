@@ -17,6 +17,13 @@ services:
     restart: unless-stopped
     ports:
       - "8000:8000"
+    environment:
+      STT_MODEL_TTL: "-1"                # -1 = nunca descargar el modelo de memoria (por defecto: a los 5 min)
+      TTS_MODEL_TTL: "-1"
+      WHISPER__INFERENCE_DEVICE: cpu
+      WHISPER__COMPUTE_TYPE: int8        # más rápido y ligero en CPU
+      PRELOAD_MODELS: '["Systran/faster-whisper-small","speaches-ai/Kokoro-82M-v1.0-ONNX"]'
+      LOG_LEVEL: info
     volumes:
       - orfeo-speaches-cache:/home/ubuntu/.cache/huggingface/hub  # modelos descargados
 

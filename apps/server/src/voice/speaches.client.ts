@@ -17,16 +17,35 @@ export class SpeachesClient implements SpeechToText, TextToSpeech {
     return this.config.get('SPEACHES_URL', { infer: true });
   }
 
-  async transcribe(audio: Buffer, mimeType: string): Promise<{ text: string; language: Language }> {
+  async transcribe(
+    audio: Buffer,
+    mimeType: string,
+  ): Promise<{ text: string; language: Language; rawLanguage?: string }> {
+    const first = await this.transcribeOnce(audio, mimeType);
+    // Solo hablamos español o inglés: si Whisper "oyó" otro idioma (p. ej. turco), repetimos forzando español.
+    const raw = (first.rawLanguage ?? '').toLowerCase();
+    const known = /^(es|en|spanish|english)/.test(raw);
+    if (!known && first.text) return this.transcribeOnce(audio, mimeType, 'es');
+    return first;
+  }
+
+  private async transcribeOnce(
+    audio: Buffer,
+    mimeType: string,
+    forceLanguage?: Language,
+  ): Promise<{ text: string; language: Language; rawLanguage?: string }> {
     const ext = mimeType.includes('ogg') ? 'ogg' : mimeType.includes('wav') ? 'wav' : mimeType.includes('mp4') ? 'mp4' : 'webm';
+    // (el modo manos libres manda WAV; pulsar para hablar, webm/opus)
     const form = new FormData();
     form.append('file', new Blob([new Uint8Array(audio)], { type: mimeType }), `audio.${ext}`);
     form.append('model', this.config.get('STT_MODEL', { infer: true }));
     form.append('response_format', 'verbose_json'); // incluye el idioma detectado
+    form.append('prompt', this.config.get('STT_PROMPT', { infer: true })); // ayuda con "Orfeo"
+    if (forceLanguage) form.append('language', forceLanguage);
 
     const res = await this.call('/v1/audio/transcriptions', { method: 'POST', body: form }, 60_000);
     const data = (await res.json()) as { text: string; language?: string };
-    return { text: data.text.trim(), language: normalizeLanguage(data.language) };
+    return { text: data.text.trim(), language: normalizeLanguage(data.language), rawLanguage: data.language };
   }
 
   async synthesize(text: string, language: Language): Promise<{ mimeType: string; data: Buffer }> {

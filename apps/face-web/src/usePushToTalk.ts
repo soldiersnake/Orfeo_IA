@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 /** Graba mientras se mantiene pulsado (espacio o botón) y entrega el audio al soltar. */
-export function usePushToTalk(onAudio: (audio: { mimeType: string; data: string }) => void) {
+export function usePushToTalk(onAudio: (audio: { mimeType: string; data: string }) => void, disabled = false) {
   const recorder = useRef<MediaRecorder | null>(null);
   const chunks = useRef<Blob[]>([]);
   const startedAt = useRef(0);
@@ -41,6 +41,7 @@ export function usePushToTalk(onAudio: (audio: { mimeType: string; data: string 
 
   // Barra espaciadora (salvo si estás escribiendo en un campo de texto)
   useEffect(() => {
+    if (disabled) return; // en manos libres, ESPACIO no graba
     const isTyping = (e: KeyboardEvent) => (e.target as HTMLElement)?.tagName === 'INPUT';
     const down = (e: KeyboardEvent) => {
       if (e.code === 'Space' && !e.repeat && !isTyping(e)) {
@@ -60,7 +61,7 @@ export function usePushToTalk(onAudio: (audio: { mimeType: string; data: string 
       window.removeEventListener('keydown', down);
       window.removeEventListener('keyup', up);
     };
-  }, [start, stop]);
+  }, [start, stop, disabled]);
 
   return { recording, error, start, stop };
 }

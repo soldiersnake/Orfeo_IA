@@ -25,6 +25,8 @@ const EnvSchema = z.object({
   TTS_MODEL: z.string().default('speaches-ai/Kokoro-82M-v1.0-ONNX'),
   TTS_VOICE_ES: z.string().default('em_alex'),
   TTS_VOICE_EN: z.string().default('am_michael'),
+  /** Pista para Whisper: nombres propios que debe reconocer bien. */
+  STT_PROMPT: z.string().default('Orfeo, Mariano.'),
 
   /** Credenciales OAuth de Google Cloud (cliente de escritorio) y token guardado tras autorizar. */
   GMAIL_CREDENTIALS_PATH: z.string().default('.secrets/gmail-credentials.json'),

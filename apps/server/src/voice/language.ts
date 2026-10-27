@@ -33,3 +33,18 @@ export function cleanForSpeech(text: string): string {
     .replace(/\s{2,}/g, ' ')
     .trim();
 }
+
+/**
+ * Parte el texto en frases para hablar "en streaming": se sintetiza y suena la primera
+ * mientras se prepara la siguiente. Las frases muy cortas se juntan con la siguiente.
+ */
+export function splitSentences(text: string, minLength = 25): string[] {
+  const parts = text.split(/(?<=[.!?…])\s+/).map((p) => p.trim()).filter(Boolean);
+  const out: string[] = [];
+  for (const part of parts) {
+    const last = out.at(-1);
+    if (last !== undefined && last.length < minLength) out[out.length - 1] = `${last} ${part}`;
+    else out.push(part);
+  }
+  return out;
+}

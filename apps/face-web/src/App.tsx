@@ -1,5 +1,6 @@
 import type { Emotion } from '@orfeo/protocol';
 import { useEffect, useRef, useState, type FormEvent } from 'react';
+import { useHandsFree } from './audio/useHandsFree';
 import { useOrfeoSocket } from './useOrfeoSocket';
 import { usePushToTalk } from './usePushToTalk';
 
@@ -9,18 +10,30 @@ const FACE: Record<Emotion, string> = {
   concerned: '😟', sad: '😢', surprised: '😮', proud: '😌', sleepy: '😴',
 };
 
-const STATE_LABEL = {
-  idle: 'Mantén pulsado ESPACIO para hablar',
-  transcribing: 'Escuchando lo que dijiste…',
-  thinking: 'Pensando…',
-  speaking: 'Hablando…',
-} as const;
+/** En conversación activa, si no hablas en este tiempo, vuelve a dormir. */
+const IDLE_TO_SLEEP_MS = 60_000;
+
+const secs = (ms?: number) => (ms === undefined ? '–' : `${(ms / 1000).toFixed(1)} s`);
 
 export function App() {
   const orfeo = useOrfeoSocket();
-  const ptt = usePushToTalk((audio) => orfeo.send({ type: 'user_audio', audio }));
+  const busy = orfeo.state !== 'idle' || orfeo.speaking;
+
+  const [handsFreeOn, setHandsFreeOn] = useState(false);
+  const ptt = usePushToTalk((audio) => orfeo.send({ type: 'user_audio', audio, listen: 'push' }), handsFreeOn);
+  const handsFree = useHandsFree({
+    paused: busy,
+    onUtterance: (audio) => {
+      orfeo.send({ type: 'user_audio', audio, listen: orfeo.mode === 'active' ? 'conversation' : 'wake' });
+      lastActivity.current = Date.now();
+    },
+  });
+
+  useEffect(() => setHandsFreeOn(handsFree.enabled), [handsFree.enabled]);
+
   const [draft, setDraft] = useState('');
   const logEnd = useRef<HTMLDivElement>(null);
+  const lastActivity = useRef(Date.now());
 
   // Con llaves: un efecto solo puede devolver una función de limpieza
   // (en Chrome reciente scrollIntoView devuelve una Promise y React intentaría "ejecutarla").
@@ -28,9 +41,47 @@ export function App() {
     logEnd.current?.scrollIntoView({ behavior: 'smooth' });
   }, [orfeo.lines]);
 
-  const busy = orfeo.state !== 'idle';
-  const face = ptt.recording ? '👂' : orfeo.state === 'thinking' ? FACE.thinking : FACE[orfeo.emotion];
-  const label = ptt.recording ? 'Te escucho… (suelta para enviar)' : orfeo.speaking ? STATE_LABEL.speaking : STATE_LABEL[orfeo.state];
+  // Conversación activa → dormido tras un rato sin hablar
+  useEffect(() => {
+    if (!handsFree.enabled || orfeo.mode !== 'active') return;
+    lastActivity.current = Date.now();
+    const timer = setInterval(() => {
+      if (!busy && Date.now() - lastActivity.current > IDLE_TO_SLEEP_MS) orfeo.setMode('sleep');
+    }, 5000);
+    return () => clearInterval(timer);
+  }, [handsFree.enabled, orfeo.mode, busy, orfeo.setMode]);
+
+  // Al activar manos libres, empezamos en conversación (si lo enciendes, es que quieres hablar)
+  const toggleHandsFree = () => {
+    if (!handsFree.enabled) orfeo.setMode('active');
+    handsFree.toggle();
+  };
+
+  const listening = ptt.recording || handsFree.hearing;
+  const asleep = handsFree.enabled && orfeo.mode === 'sleep';
+  const face = listening
+    ? '👂'
+    : orfeo.state === 'thinking'
+      ? FACE.thinking
+      : asleep && !busy
+        ? FACE.sleepy
+        : FACE[orfeo.emotion];
+
+  const label = ptt.recording
+    ? 'Te escucho… (suelta para enviar)'
+    : handsFree.hearing
+      ? 'Te escucho…'
+      : orfeo.state === 'transcribing'
+        ? 'Entendiendo lo que dijiste…'
+        : orfeo.state === 'thinking'
+          ? 'Pensando…'
+          : orfeo.speaking
+            ? 'Hablando…'
+            : asleep
+              ? 'Dormido — di "Orfeo" para despertarme'
+              : handsFree.enabled
+                ? 'Conversación activa — habla cuando quieras (di "descansa" para terminar)'
+                : 'Mantén pulsado ESPACIO para hablar';
 
   const submit = (e: FormEvent) => {
     e.preventDefault();
@@ -46,21 +97,36 @@ export function App() {
         <span className={`dot ${orfeo.connected ? 'on' : 'off'}`}>{orfeo.connected ? 'conectado' : 'conectando…'}</span>
       </header>
 
-      <section className={`face ${ptt.recording ? 'listening' : ''} ${orfeo.speaking ? 'speaking' : ''}`}>
+      <section className={`face ${listening ? 'listening' : ''} ${orfeo.speaking ? 'speaking' : ''} ${asleep ? 'asleep' : ''}`}>
         <div className="emoji">{face}</div>
         <p className="state">{label}</p>
+        {handsFree.enabled && <div className="level" style={{ width: `${Math.min(100, handsFree.level * 800)}%` }} />}
       </section>
 
-      <button
-        className={`talk ${ptt.recording ? 'active' : ''}`}
-        disabled={!orfeo.connected || busy}
-        onPointerDown={() => void ptt.start()}
-        onPointerUp={ptt.stop}
-        onPointerLeave={ptt.stop}
-      >
-        {ptt.recording ? '● Grabando' : '🎙️ Mantén para hablar'}
-      </button>
-      {ptt.error && <p className="error">{ptt.error}</p>}
+      {orfeo.timings && (
+        <p className="timings">
+          {orfeo.timings.audioSeconds !== undefined && <>audio {orfeo.timings.audioSeconds.toFixed(1)} s · </>}
+          oír {secs(orfeo.timings.stt)} · pensar {secs(orfeo.timings.think)} · empezar a hablar {secs(orfeo.timings.firstAudio)}
+        </p>
+      )}
+
+      <div className="controls">
+        <button className={`toggle ${handsFree.enabled ? 'on' : ''}`} disabled={!orfeo.connected} onClick={toggleHandsFree}>
+          {handsFree.enabled ? '🖐️ Manos libres: ON' : '🖐️ Manos libres: OFF'}
+        </button>
+        {!handsFree.enabled && (
+          <button
+            className={`talk ${ptt.recording ? 'active' : ''}`}
+            disabled={!orfeo.connected || busy}
+            onPointerDown={() => void ptt.start()}
+            onPointerUp={ptt.stop}
+            onPointerLeave={ptt.stop}
+          >
+            {ptt.recording ? '● Grabando' : '🎙️ Mantén para hablar'}
+          </button>
+        )}
+      </div>
+      {(ptt.error || handsFree.error) && <p className="error">{ptt.error ?? handsFree.error}</p>}
       {!orfeo.connected && (
         <p className="error">
           No encuentro el cerebro de Orfeo. ¿Está corriendo <code>pnpm dev</code>? (<code>pnpm chat</code> no abre el WebSocket)

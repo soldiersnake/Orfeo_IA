@@ -1,4 +1,4 @@
-import type { ClientMessage, Emotion, OrfeoState, ServerMessage } from '@orfeo/protocol';
+import type { ClientMessage, Emotion, ListenMode, OrfeoState, ServerMessage, Timings } from '@orfeo/protocol';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 const WS_URL = import.meta.env.VITE_ORFEO_WS ?? 'ws://localhost:3100/ws';
@@ -27,17 +27,37 @@ export function useOrfeoSocket() {
   const [lines, setLines] = useState<ChatLine[]>([]);
   const [confirms, setConfirms] = useState<ConfirmRequest[]>([]);
   const [speaking, setSpeaking] = useState(false);
+  const [mode, setMode] = useState<ListenMode>('sleep');
+  const [timings, setTimings] = useState<Timings | null>(null);
+  /** Cola de frases de voz: suenan una detrás de otra según van llegando. */
+  const audioQueue = useRef<string[]>([]);
+  const playing = useRef(false);
 
   const push = useCallback((line: Omit<ChatLine, 'id'>) => {
     setLines((prev) => [...prev.slice(-50), { ...line, id: nextId.current++ }]);
   }, []);
 
-  const play = useCallback((mimeType: string, data: string) => {
-    const audio = new Audio(`data:${mimeType};base64,${data}`);
+  const playNext = useCallback(() => {
+    const src = audioQueue.current.shift();
+    if (!src) {
+      playing.current = false;
+      setSpeaking(false);
+      return;
+    }
+    playing.current = true;
     setSpeaking(true);
-    audio.onended = audio.onerror = () => setSpeaking(false);
-    audio.play().catch(() => setSpeaking(false)); // el navegador puede bloquear audio sin interacción previa
+    const audio = new Audio(src);
+    audio.onended = audio.onerror = () => playNext();
+    audio.play().catch(() => playNext()); // el navegador puede bloquear audio sin interacción previa
   }, []);
+
+  const enqueue = useCallback(
+    (mimeType: string, data: string) => {
+      audioQueue.current.push(`data:${mimeType};base64,${data}`);
+      if (!playing.current) playNext();
+    },
+    [playNext],
+  );
 
   useEffect(() => {
     let closedByUs = false;
@@ -63,8 +83,18 @@ export function useOrfeoSocket() {
           case 'speak':
             setEmotion(msg.emotion);
             push({ who: 'orfeo', text: msg.text, emotion: msg.emotion });
-            if (msg.audio) play(msg.audio.mimeType, msg.audio.data);
             break;
+          case 'audio_chunk':
+            enqueue(msg.audio.mimeType, msg.audio.data);
+            break;
+          case 'mode':
+            setMode(msg.mode);
+            break;
+          case 'timings':
+            setTimings(msg.timings);
+            break;
+          case 'ignored':
+            break; // estaba dormido y no era para él
           case 'emotion':
             setEmotion(msg.emotion);
             break;
@@ -87,7 +117,7 @@ export function useOrfeoSocket() {
       clearTimeout(retry);
       ws.current?.close();
     };
-  }, [push, play]);
+  }, [push, enqueue]);
 
   const send = useCallback((message: ClientMessage) => {
     if (ws.current?.readyState === WebSocket.OPEN) ws.current.send(JSON.stringify(message));
@@ -109,5 +139,18 @@ export function useOrfeoSocket() {
     [send],
   );
 
-  return { connected, state, emotion, lines, confirms, speaking, send, sendText, answerConfirm };
+  return {
+    connected,
+    state,
+    emotion,
+    lines,
+    confirms,
+    speaking,
+    mode,
+    setMode,
+    timings,
+    send,
+    sendText,
+    answerConfirm,
+  };
 }

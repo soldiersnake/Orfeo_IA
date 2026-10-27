@@ -50,3 +50,15 @@ h1 { margin: 0; font-size: 1.4rem; letter-spacing: 0.05em; }
 .actions { display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap; }
 .actions .yes { background: var(--ok); color: #0b0d12; }
 .actions .no { background: transparent; color: var(--text); border: 1px solid #2a2e3b; }
+
+/* --- manos libres --- */
+.face { position: relative; overflow: hidden; }
+.face.asleep { opacity: 0.75; }
+.level { position: absolute; bottom: 18%; left: 50%; transform: translateX(-50%); height: 4px; max-width: 50%;
+  background: var(--accent); border-radius: 2px; transition: width 0.05s; }
+.controls { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
+.toggle { padding: 14px 20px; border-radius: 999px; border: 1px solid #2a2e3b; background: var(--panel); color: var(--text);
+  font-size: 1rem; cursor: pointer; font-weight: 600; }
+.toggle.on { background: var(--ok); color: #0b0d12; border-color: var(--ok); }
+.toggle:disabled { opacity: 0.5; }
+.timings { text-align: center; color: var(--muted); font-size: 0.8rem; margin: -8px 0 0; }
