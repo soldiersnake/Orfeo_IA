@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import type { OrfeoReply } from '@orfeo/protocol';
 import { AgentService } from '../agent/agent.service';
+import { intentHints } from '../agent/intent-hints';
 import { ConversationService } from '../conversation/conversation.service';
 import { MemoryService, type RecalledMemory } from '../memory/memory.service';
 import { orfeoPersona } from '../persona/orfeo.persona';
@@ -29,9 +30,14 @@ export class ChatService {
 
     // 2. Contexto: persona + recuerdos + charla reciente + mensaje nuevo
     const history = await this.conversation.recent(MAX_HISTORY);
+    // Pistas de intención justo antes del mensaje (donde el modelo presta más atención)
+    const hints = intentHints(userText);
+    if (hints.length) this.logger.debug(`Pistas: ${hints.length}`);
+
     const { reply, toolsUsed } = await this.agent.run([
       { role: 'system', content: `${this.withMemories(recalled)}\n\n${this.now()}` },
       ...history,
+      ...(hints.length ? [{ role: 'system' as const, content: `[Pista del sistema]\n${hints.join('\n')}` }] : []),
       { role: 'user', content: userText },
     ]);
     if (toolsUsed.length) this.logger.debug(`Herramientas usadas: ${toolsUsed.join(', ')}`);

@@ -49,6 +49,10 @@ export class GmailService {
    * nunca de lo que diga el modelo (que puede inventarse ids o textos).
    */
   private readonly drafts = new Map<string, CreatedDraft>();
+  /** Orden de la última lista de borradores mostrada ("envía el 2" se refiere a esta lista). */
+  private lastDraftListing: string[] = [];
+  /** Último borrador creado o mostrado: el que se envía si no se indica número. */
+  private lastTouchedDraftId?: string;
 
   constructor(private readonly config: ConfigService<Env, true>) {}
 
@@ -107,18 +111,50 @@ export class GmailService {
     this.logger.debug(`Borrador creado ${data.id} para ${input.to}`);
     const draft: CreatedDraft = { draftId: data.id!, to: input.to, subject, body: input.body };
     this.drafts.set(draft.draftId, draft);
+    this.lastTouchedDraftId = draft.draftId;
     return draft;
   }
 
-  /** Busca un borrador creado en esta sesión; sin id (o con uno inventado), devuelve el último. */
-  findDraft(draftId?: string): CreatedDraft | undefined {
-    if (draftId && this.drafts.has(draftId)) return this.drafts.get(draftId);
-    return [...this.drafts.values()].at(-1);
+  /** Borradores que hay en Gmail ahora mismo (también los creados antes de reiniciar Orfeo). */
+  async listDrafts(to?: string, max = 10): Promise<CreatedDraft[]> {
+    const api = this.api();
+    const { data } = await api.users.drafts.list({
+      userId: 'me',
+      maxResults: Math.min(max, 15),
+      q: to ? `to:${to}` : undefined,
+    });
+    const drafts = await Promise.all(
+      (data.drafts ?? []).map(async (d) => {
+        const { data: full } = await api.users.drafts.get({ userId: 'me', id: d.id!, format: 'full' });
+        const msg = full.message ?? {};
+        const draft: CreatedDraft = {
+          draftId: d.id!,
+          to: this.header(msg, 'To') || '(sin destinatario)',
+          subject: this.header(msg, 'Subject') || '(sin asunto)',
+          body: extractBody(msg.payload) || decodeEntities(msg.snippet ?? ''),
+        };
+        this.drafts.set(draft.draftId, draft);
+        return draft;
+      }),
+    );
+    this.lastDraftListing = drafts.map((d) => d.draftId);
+    if (drafts.length === 1) this.lastTouchedDraftId = drafts[0].draftId;
+    return drafts;
+  }
+
+  /**
+   * Elige el borrador a enviar SIN fiarse de ids que diga el modelo:
+   * por número de la última lista mostrada, o el último creado/mostrado.
+   */
+  findDraft(number?: number): CreatedDraft | undefined {
+    const id = number ? this.lastDraftListing[number - 1] : this.lastTouchedDraftId;
+    return id ? this.drafts.get(id) : undefined;
   }
 
   async sendDraft(draftId: string): Promise<void> {
     await this.api().users.drafts.send({ userId: 'me', requestBody: { id: draftId } });
     this.drafts.delete(draftId); // un borrador enviado ya no existe
+    if (this.lastTouchedDraftId === draftId) this.lastTouchedDraftId = undefined;
     this.logger.log(`📤 Borrador ${draftId} enviado`);
   }
 
