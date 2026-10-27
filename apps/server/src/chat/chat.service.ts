@@ -59,6 +59,11 @@ export class ChatService {
     return `# Ahora\nHoy es ${date} (hora de Valencia). Si ${orfeoPersona.human} pregunta el día o la hora, díselos con exactitud.`;
   }
 
+  /** Deja constancia en la charla de algo que pasó fuera del modelo (ej: Mariano confirmó un envío). */
+  async noteEvent(text: string): Promise<void> {
+    await this.conversation.add('assistant', `[Sistema: ${text}]`);
+  }
+
   reset(): void {
     this.conversation.newSession();
   }

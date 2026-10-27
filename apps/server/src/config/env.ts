@@ -18,6 +18,10 @@ const EnvSchema = z.object({
   OLLAMA_EMBED_MODEL: z.string().default('embeddinggemma'),
 
   MONGO_URI: z.string().default('mongodb://localhost:27018/orfeo'),
+
+  /** Credenciales OAuth de Google Cloud (cliente de escritorio) y token guardado tras autorizar. */
+  GMAIL_CREDENTIALS_PATH: z.string().default('.secrets/gmail-credentials.json'),
+  GMAIL_TOKEN_PATH: z.string().default('.secrets/gmail-token.json'),
   /** Cuántos recuerdos como máximo se añaden al prompt. */
   MEMORY_TOP_K: z.coerce.number().default(3),
   /** Similitud mínima (0-1) para considerar un recuerdo relevante. */

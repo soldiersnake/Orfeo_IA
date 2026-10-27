@@ -5,6 +5,8 @@ import { stdin, stdout } from 'node:process';
 import type { Emotion } from '@orfeo/protocol';
 import { AppModule } from '../app.module';
 import { ChatService } from '../chat/chat.service';
+import { GmailService } from '../gmail/gmail.service';
+import { PendingActionsService } from '../gmail/pending-actions.service';
 import { MemoryService } from '../memory/memory.service';
 
 /** Mientras no hay cara, la emoción se "dibuja" con un emoji. */
@@ -20,6 +22,8 @@ async function main() {
   });
   const chat = app.get(ChatService);
   const memory = app.get(MemoryService);
+  const gmail = app.get(GmailService);
+  const pending = app.get(PendingActionsService);
   let lastListing: string[] = []; // ids de la última vez que se mostró /recuerdos
   const rl = createInterface({ input: stdin, output: stdout });
 
@@ -65,8 +69,30 @@ async function main() {
       stdout.write('Orfeo 🧐 pensando...\r');
       const { text: answer, emotion } = await chat.reply(text);
       console.log(`\nOrfeo ${FACE[emotion]}  ${answer}\n`);
+
     } catch (err) {
-      console.error(`\n⚠️  ${(err as Error).message}\n   ¿Está Ollama abierto y el modelo descargado?\n`);
+      const message = (err as Error).message;
+      const hint = message.includes('Ollama') ? '\n   ¿Está Ollama abierto y el modelo descargado?' : '';
+      console.error(`\n⚠️  ${message}${hint}\n`);
+    }
+
+    // 🔒 Envíos pendientes: los confirma Mariano, nunca el modelo. Los datos son los del borrador REAL.
+    for (const send of pending.takeAll()) {
+      console.log(`📧 Para: ${send.to}\n   Asunto: ${send.subject}\n   ---\n   ${send.body.replace(/\n/g, '\n   ')}\n`);
+      const ok = (await rl.question('¿Envío este correo? (s/n): ')).trim().toLowerCase();
+      if (!['s', 'si', 'sí'].includes(ok)) {
+        console.log('👌 No lo envío; queda como borrador en tu Gmail.\n');
+        await chat.noteEvent(`Mariano decidió NO enviar el correo a ${send.to}; quedó como borrador.`);
+        continue;
+      }
+      try {
+        await gmail.sendDraft(send.draftId);
+        console.log('✅ Enviado.\n');
+        await chat.noteEvent(`Mariano confirmó y el correo a ${send.to} ("${send.subject}") se ENVIÓ correctamente.`);
+      } catch (err) {
+        console.error(`⚠️  No se pudo enviar: ${(err as Error).message}\n`);
+        await chat.noteEvent(`El envío del correo a ${send.to} FALLÓ (${(err as Error).message}).`);
+      }
     }
   }
 

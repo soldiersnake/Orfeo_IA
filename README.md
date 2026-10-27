@@ -39,7 +39,7 @@ Para cambiar de modelo, edita `OLLAMA_MODEL` en `apps/server/.env`. El log muest
 |---|---|---|
 | 1 | Chat con personalidad (CLI + REST) | ✅ |
 | 2 | Memoria: conversaciones en MongoDB + recuerdos con embeddings (RAG) | ✅ |
-| 3 | Agente con tools: fecha, notas, ideas, recordar ✅ · Gmail (lectura y borradores; nunca envía sin confirmar) ⏳ | 🔶 |
+| 3 | Agente con tools: fecha, notas, ideas, recordar ✅ · Gmail (lectura, borradores y envío solo con confirmación) ✅ | ✅ |
 | 4 | Voz en el PC: Whisper (oír) + Piper (hablar), en español e inglés | ⏳ |
 | 5 | Cara virtual en React por WebSocket (emociones + "caricias" con el ratón) | ⏳ |
 | 6 | Coach vocal: análisis de afinación y estabilidad mientras ensayas + feedback de Orfeo | ⏳ |

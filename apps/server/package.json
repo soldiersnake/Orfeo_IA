@@ -8,9 +8,11 @@
     "build": "tsc -p tsconfig.json",
     "start": "node dist/main.js",
     "start:dev": "nest start --watch",
-    "chat": "node dist/cli/chat.js"
+    "chat": "node dist/cli/chat.js",
+    "gmail:auth": "node dist/cli/gmail-auth.js"
   },
   "dependencies": {
+    "@googleapis/gmail": "^22.0.2",
     "@nestjs/common": "^11.0.0",
     "@nestjs/config": "^4.0.0",
     "@nestjs/core": "^11.0.0",

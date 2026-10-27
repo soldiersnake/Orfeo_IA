@@ -10,12 +10,14 @@ Asistente/amigo de Mariano. **Cerebro** en el PC (NestJS + Ollama, todo local); 
 - `apps/server/src/agent` — bucle de tool calling (máx. 5 pasos, máx. 2 usos por tool y turno, el último paso solo permite `respond`). El agente termina SIEMPRE llamando a la tool especial `respond({text, emotion})` (Ollama no combina bien `format` JSON + tools).
 - `apps/server/src/tools` — interfaz `OrfeoTool` (zod `schema` + JSON Schema `parameters` + `execute`). Añadir una tool = crear la clase en `builtin/` y sumarla a `TOOL_CLASSES` en `tools.module.ts`.
 - `apps/server/src/notes` — notas/ideas en Mongo (etiquetas + índice de texto).
+- `apps/server/src/gmail` — Gmail vía OAuth de escritorio (`pnpm gmail:auth`, token en `apps/server/.secrets/`, gitignored; guía en `docs/gmail-setup.md`). **El modelo nunca envía ni elige qué se envía**: `send_draft` no tiene argumentos; toma el último borrador REAL registrado por `GmailService` en la sesión, lo encola en `PendingActionsService`, y el cliente (CLI) pide confirmación s/n antes de `GmailService.sendDraft`. El resultado se registra en la charla con `ChatService.noteEvent` para que el modelo sepa qué pasó. El contenido de correos se envuelve como datos externos (defensa ante prompt injection).
 - `apps/server/src/conversation` — memoria corta (mensajes por `sessionId` en Mongo).
 - `apps/server/src/memory` — memoria larga: extracción con LLM, embeddings `embeddinggemma` (multilingüe; prefijos por modelo; se recalculan al arrancar si cambia el modelo), similitud coseno en Node (umbral `MEMORY_MIN_SCORE`).
 - `apps/server/src/cli` — chat por terminal.
 
 ## Comandos
 - `pnpm chat` — compila y abre el chat CLI
+- `pnpm gmail:auth` — autoriza Gmail (una vez; en modo prueba caduca a los 7 días)
 - `pnpm build` — compila todo (protocol primero)
 - `pnpm db:up` / `pnpm db:down` — MongoDB de Orfeo en Docker (**puerto 27018**; el 27017 es otro Mongo del usuario)
 - Config en `apps/server/.env` (ver `.env.example`, validado con zod en `src/config/env.ts`)
@@ -31,5 +33,5 @@ Node 26, pnpm 10 (monorepo), NestJS 11 (CommonJS, `module: node16`), Mongoose 8 
 - Privacidad: todo local. **Las tools de email nunca envían sin confirmación explícita de Mariano.**
 
 ## Forma de trabajo
-- Mariano lee el código y hace los commits él mismo: entregar cambios en bloques pequeños, con explicación breve y mensajes de commit sugeridos (Conventional Commits, en español). No hacer commits.
+- Mariano lee el código y hace los commits él mismo: entregar cambios en bloques pequeños, con explicación breve y UN SOLO mensaje de commit sugerido, simple y específico (Conventional Commits, en español). Nunca listas de varios commits. No hacer commits.
 - Explicaciones concisas, con analogías cuando el concepto es nuevo (sobre todo en electrónica).
