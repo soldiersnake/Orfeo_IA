@@ -1,5 +1,5 @@
-# MongoDB local para la memoria de Orfeo (se usa a partir de la fase 2)
 services:
+  # MongoDB local para la memoria de Orfeo
   mongo:
     image: mongo:8
     container_name: orfeo-mongo
@@ -8,5 +8,18 @@ services:
       - "27018:27017"  # 27018 en tu PC (el 27017 ya lo usa tu otro MongoDB)
     volumes:
       - orfeo-mongo-data:/data/db
+
+  # Speaches: voz local (Whisper para oír, Kokoro/Piper para hablar), API compatible con OpenAI.
+  # Corre en CPU a propósito: la GPU (8 GB) la usa Ollama.
+  speaches:
+    image: ghcr.io/speaches-ai/speaches:latest-cpu
+    container_name: orfeo-speaches
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    volumes:
+      - orfeo-speaches-cache:/home/ubuntu/.cache/huggingface/hub  # modelos descargados
+
 volumes:
   orfeo-mongo-data:
+  orfeo-speaches-cache:

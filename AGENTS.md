@@ -14,13 +14,17 @@ Asistente/amigo de Mariano. **Cerebro** en el PC (NestJS + Ollama, todo local); 
 - `apps/server/src/gmail` — Gmail vía OAuth de escritorio (`pnpm gmail:auth`, token en `apps/server/.secrets/`, gitignored; guía en `docs/gmail-setup.md`). **El modelo nunca envía ni elige qué se envía**: `send_draft` solo acepta un `number` de la última lista de `list_drafts` (o nada = último borrador creado/mostrado); los borradores reales salen de Gmail vía `GmailService`, nunca de ids del modelo. Lo encola en `PendingActionsService`, y el cliente (CLI) pide confirmación s/n antes de `GmailService.sendDraft`. El resultado se registra en la charla con `ChatService.noteEvent` para que el modelo sepa qué pasó. El contenido de correos se envuelve como datos externos (defensa ante prompt injection).
 - `apps/server/src/conversation` — memoria corta (mensajes por `sessionId` en Mongo).
 - `apps/server/src/memory` — memoria larga: extracción con LLM, embeddings `embeddinggemma` (multilingüe; prefijos por modelo; se recalculan al arrancar si cambia el modelo), similitud coseno en Node (umbral `MEMORY_MIN_SCORE`).
-- `apps/server/src/cli` — chat por terminal.
+- `apps/server/src/cli` — chat por terminal, `gmail-auth`, `voice-setup`.
+- `apps/server/src/voice` — interfaces `SpeechToText`/`TextToSpeech` implementadas por `SpeachesClient` (contenedor Speaches en CPU, puerto 8000, API OpenAI: Whisper + Kokoro). `language.ts`: detección de idioma de la respuesta para elegir voz es/en, y limpieza de emojis/markdown antes de sintetizar.
+- `apps/server/src/gateway` — WebSocket puro (`WsAdapter`, ruta `/ws`, puerto **3100**) que habla `ClientMessage`/`ServerMessage` de `packages/protocol`. Cola por conexión. Confirmaciones de correo vía `confirm_request` → `confirm_send` (solo se aceptan ids que el gateway pidió confirmar).
+- `apps/face-web` — Vite + React 19 (ESM, solo `import type` del protocolo). Hooks `useOrfeoSocket` (reconexión) y `usePushToTalk` (MediaRecorder, ESPACIO). Su script es `build:web` (no `build`, para no ralentizar `pnpm chat`). Ojo: los `useEffect` deben usar llaves (no devolver valores como la Promise de `scrollIntoView`).
 
 ## Comandos
 - `pnpm chat` — compila y abre el chat CLI
 - `pnpm gmail:auth` — autoriza Gmail (una vez; en modo prueba caduca a los 7 días)
 - `pnpm build` — compila todo (protocol primero)
-- `pnpm db:up` / `pnpm db:down` — MongoDB de Orfeo en Docker (**puerto 27018**; el 27017 es otro Mongo del usuario)
+- `pnpm dev` (cerebro con watch) · `pnpm web` (cara web en :5173) · `pnpm voice:setup` (modelos de voz + prueba)
+- `pnpm db:up` / `pnpm db:down` — MongoDB + Speaches en Docker (**puerto 27018**; el 27017 es otro Mongo del usuario)
 - Config en `apps/server/.env` (ver `.env.example`, validado con zod en `src/config/env.ts`)
 
 ## Stack y entorno

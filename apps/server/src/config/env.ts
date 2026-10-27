@@ -2,7 +2,7 @@ import { z } from 'zod';
 
 /** Valida las variables de entorno al arrancar: si falta algo, falla rápido y claro. */
 const EnvSchema = z.object({
-  PORT: z.coerce.number().default(3000),
+  PORT: z.coerce.number().default(3100), // 3100: el 3000 suele estar ocupado por otros proyectos
   OLLAMA_URL: z.string().url().default('http://localhost:11434'),
   OLLAMA_MODEL: z.string().default('qwen3:8b'),
   OLLAMA_NUM_CTX: z.coerce.number().default(8192),
@@ -18,6 +18,13 @@ const EnvSchema = z.object({
   OLLAMA_EMBED_MODEL: z.string().default('embeddinggemma'),
 
   MONGO_URI: z.string().default('mongodb://localhost:27018/orfeo'),
+
+  /** Speaches: servidor local de voz (Whisper para oír, Kokoro para hablar). */
+  SPEACHES_URL: z.string().url().default('http://localhost:8000'),
+  STT_MODEL: z.string().default('Systran/faster-whisper-small'),
+  TTS_MODEL: z.string().default('speaches-ai/Kokoro-82M-v1.0-ONNX'),
+  TTS_VOICE_ES: z.string().default('em_alex'),
+  TTS_VOICE_EN: z.string().default('am_michael'),
 
   /** Credenciales OAuth de Google Cloud (cliente de escritorio) y token guardado tras autorizar. */
   GMAIL_CREDENTIALS_PATH: z.string().default('.secrets/gmail-credentials.json'),

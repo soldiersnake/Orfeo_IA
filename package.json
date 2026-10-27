@@ -12,6 +12,8 @@
     "chat": "pnpm build && pnpm --filter @orfeo/server chat",
     "db:up": "docker compose up -d",
     "db:down": "docker compose down",
-    "gmail:auth": "pnpm build && pnpm --filter @orfeo/server gmail:auth"
+    "gmail:auth": "pnpm build && pnpm --filter @orfeo/server gmail:auth",
+    "voice:setup": "pnpm build && pnpm --filter @orfeo/server voice:setup",
+    "web": "pnpm --filter @orfeo/face-web dev"
   }
 }

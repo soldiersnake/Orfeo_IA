@@ -3,6 +3,7 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { MongooseModule } from '@nestjs/mongoose';
 import { ChatModule } from './chat/chat.module';
 import { validateEnv, type Env } from './config/env';
+import { GatewayModule } from './gateway/gateway.module';
 
 @Module({
   imports: [
@@ -15,6 +16,7 @@ import { validateEnv, type Env } from './config/env';
       }),
     }),
     ChatModule,
+    GatewayModule,
   ],
 })
 export class AppModule {}
