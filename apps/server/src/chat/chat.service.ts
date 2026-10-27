@@ -30,7 +30,7 @@ export class ChatService {
     // 2. Contexto: persona + recuerdos + charla reciente + mensaje nuevo
     const history = await this.conversation.recent(MAX_HISTORY);
     const { reply, toolsUsed } = await this.agent.run([
-      { role: 'system', content: this.withMemories(recalled) },
+      { role: 'system', content: `${this.withMemories(recalled)}\n\n${this.now()}` },
       ...history,
       { role: 'user', content: userText },
     ]);
@@ -47,6 +47,16 @@ export class ChatService {
     );
 
     return reply;
+  }
+
+  /** La fecha va en el contexto de cada turno: más fiable que una tool para modelos pequeños. */
+  private now(): string {
+    const date = new Date().toLocaleString('es-ES', {
+      timeZone: 'Europe/Madrid',
+      dateStyle: 'full',
+      timeStyle: 'short',
+    });
+    return `# Ahora\nHoy es ${date} (hora de Valencia). Si ${orfeoPersona.human} pregunta el día o la hora, díselos con exactitud.`;
   }
 
   reset(): void {

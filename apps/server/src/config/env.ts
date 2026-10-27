@@ -21,7 +21,7 @@ const EnvSchema = z.object({
   /** Cuántos recuerdos como máximo se añaden al prompt. */
   MEMORY_TOP_K: z.coerce.number().default(3),
   /** Similitud mínima (0-1) para considerar un recuerdo relevante. */
-  MEMORY_MIN_SCORE: z.coerce.number().min(0).max(1).default(0.6),
+  MEMORY_MIN_SCORE: z.coerce.number().min(0).max(1).default(0.5),
 });
 
 export type Env = z.infer<typeof EnvSchema>;

@@ -95,19 +95,24 @@ export class MemoryService implements OnModuleInit {
   }
 
   /** Busca los recuerdos más relacionados con lo que Mariano acaba de decir. */
-  async recall(query: string): Promise<RecalledMemory[]> {
+  async recall(query: string, opts: { minScore?: number; topK?: number } = {}): Promise<RecalledMemory[]> {
     const all = await this.memories.find({ embedModel: this.embedModel }).select('+embedding text').lean();
     if (all.length === 0) return [];
 
     const [queryVector] = await this.llm.embed([this.prefix('query') + query]);
-    const minScore = this.config.get('MEMORY_MIN_SCORE', { infer: true });
-    const topK = this.config.get('MEMORY_TOP_K', { infer: true });
+    const minScore: number = opts.minScore ?? this.config.get('MEMORY_MIN_SCORE', { infer: true });
+    const topK: number = opts.topK ?? this.config.get('MEMORY_TOP_K', { infer: true });
 
-    const ranked = all
+    const scored = all
       .map((m) => ({ id: String(m._id), text: m.text, score: cosineSimilarity(queryVector, m.embedding) }))
-      .filter((m) => m.score >= minScore)
-      .sort((a, b) => b.score - a.score)
-      .slice(0, topK);
+      .sort((a, b) => b.score - a.score);
+    const ranked = scored.filter((m) => m.score >= minScore).slice(0, topK);
+
+    // Para calibrar el umbral: los 3 mejores candidatos, entren o no.
+    this.logger.debug(
+      `Candidatos (umbral ${minScore}): ` +
+        scored.slice(0, 3).map((m) => `${m.score.toFixed(2)} "${m.text.slice(0, 40)}"`).join(' | '),
+    );
 
     if (ranked.length) {
       await this.memories.updateMany(

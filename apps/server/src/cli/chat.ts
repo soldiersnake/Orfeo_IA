@@ -16,7 +16,7 @@ const FACE: Record<Emotion, string> = {
 async function main() {
   // Arranca Nest sin servidor HTTP: solo el contenedor de dependencias.
   const app = await NestFactory.createApplicationContext(AppModule, {
-    logger: ['error', 'warn', 'debug'],
+    logger: ['error', 'warn', 'log', 'debug'],
   });
   const chat = app.get(ChatService);
   const memory = app.get(MemoryService);
@@ -48,15 +48,17 @@ async function main() {
       continue;
     }
     if (text.startsWith('/olvidar')) {
-      const n = Number(text.split(' ')[1]);
-      const id = lastListing[n - 1];
-      if (!id) {
-        console.log('Usa primero /recuerdos y luego /olvidar <número>\n');
+      // Acepta varios: /olvidar 7 8 9 10
+      const numbers = text.split(/\s+/).slice(1).map(Number).filter((n) => lastListing[n - 1]);
+      if (numbers.length === 0) {
+        console.log('Usa primero /recuerdos y luego /olvidar <números> (ej: /olvidar 7 8 9)\n');
         continue;
       }
-      await memory.remove(id);
-      lastListing[n - 1] = '';
-      console.log(`(olvidado el recuerdo ${n})\n`);
+      for (const n of numbers) {
+        await memory.remove(lastListing[n - 1]);
+        lastListing[n - 1] = '';
+      }
+      console.log(`(olvidados: ${numbers.join(', ')})\n`);
       continue;
     }
     try {
