@@ -14,6 +14,8 @@ const EnvSchema = z.object({
     .transform((v) => (v === undefined ? undefined : v === 'true')),
   /** Si Ollama tarda más que esto, cortamos con un error claro en vez de quedarnos colgados. */
   OLLAMA_TIMEOUT_MS: z.coerce.number().default(120_000),
+  /** Cuánto mantiene Ollama los modelos en la GPU sin uso. -1 = siempre (por defecto Ollama los suelta a los 5 min). */
+  OLLAMA_KEEP_ALIVE: z.string().default('-1'),
   /** Modelo que convierte texto en vectores (embeddings) para la memoria. */
   OLLAMA_EMBED_MODEL: z.string().default('embeddinggemma'),
 

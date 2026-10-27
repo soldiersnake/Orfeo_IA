@@ -1,0 +1,17 @@
+# Variante GPU de Speaches: Whisper en la RTX 4070 (décimas de segundo en vez de ~10 s en CPU).
+# Activar:    pnpm voice:gpu      Volver a CPU:    pnpm voice:cpu
+# Ocupa ~0,5 GB de VRAM. Si después "ollama ps" deja de mostrar "100% GPU",
+# baja OLLAMA_NUM_CTX en apps/server/.env (p. ej. a 6144) para hacer sitio.
+services:
+  speaches:
+    image: ghcr.io/speaches-ai/speaches:latest-cuda
+    environment:
+      WHISPER__INFERENCE_DEVICE: cuda
+      WHISPER__COMPUTE_TYPE: int8_float16  # pesos en int8: menos VRAM, casi la misma precisión
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]

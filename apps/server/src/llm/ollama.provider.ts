@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, OnApplicationBootstrap } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import type { Env } from '../config/env';
 import type {
@@ -21,10 +21,24 @@ interface OllamaChatResponse {
 }
 
 @Injectable()
-export class OllamaProvider implements LlmProvider {
+export class OllamaProvider implements LlmProvider, OnApplicationBootstrap {
   private readonly logger = new Logger(OllamaProvider.name);
 
   constructor(private readonly config: ConfigService<Env, true>) {}
+
+  /** "keep_alive" de Ollama: número (-1 = siempre) o duración ("30m"). */
+  private get keepAlive(): string | number {
+    const raw = this.config.get('OLLAMA_KEEP_ALIVE', { infer: true });
+    return /^-?\d+$/.test(raw) ? Number(raw) : raw;
+  }
+
+  /** Precarga los modelos al arrancar: así el primer mensaje no espera ~20 s a que se carguen. */
+  onApplicationBootstrap() {
+    const t0 = Date.now();
+    void Promise.all([this.request({ messages: [] }), this.embed(['hola'])])
+      .then(() => this.logger.log(`🔥 Modelos cargados en la GPU (${Date.now() - t0} ms)`))
+      .catch((err) => this.logger.warn(`No pude precargar los modelos: ${(err as Error).message}`));
+  }
 
   async chat(messages: ChatMessage[], options: LlmChatOptions = {}): Promise<string> {
     const data = await this.request({ messages: this.toOllama(messages), format: options.jsonSchema });
@@ -50,7 +64,11 @@ export class OllamaProvider implements LlmProvider {
     const res = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ model: this.config.get('OLLAMA_EMBED_MODEL', { infer: true }), input: texts }),
+      body: JSON.stringify({
+        model: this.config.get('OLLAMA_EMBED_MODEL', { infer: true }),
+        input: texts,
+        keep_alive: this.keepAlive,
+      }),
       signal: AbortSignal.timeout(30_000),
     });
     if (!res.ok) throw new Error(`Ollama (embed) respondió ${res.status}: ${await res.text()}`);
@@ -89,6 +107,7 @@ export class OllamaProvider implements LlmProvider {
         body: JSON.stringify({
           model,
           stream: false,
+          keep_alive: this.keepAlive,
           ...body,
           ...(think !== undefined && { think }), // solo se envía si está configurado
           options: {

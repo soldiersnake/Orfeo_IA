@@ -14,6 +14,8 @@
     "db:down": "docker compose down",
     "gmail:auth": "pnpm build && pnpm --filter @orfeo/server gmail:auth",
     "voice:setup": "pnpm build && pnpm --filter @orfeo/server voice:setup",
-    "web": "pnpm --filter @orfeo/face-web dev"
+    "web": "pnpm --filter @orfeo/face-web dev",
+    "voice:gpu": "docker compose -f docker-compose.yml -f docker-compose.gpu.yml up -d speaches",
+    "voice:cpu": "docker compose up -d --force-recreate speaches"
   }
 }
